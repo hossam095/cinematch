@@ -96,11 +96,11 @@ export function Onboarding() {
               <div className="mt-4 h-2 bg-dark-800 rounded-full max-w-xs mx-auto overflow-hidden">
                 <div
                   className="h-full bg-brand-500 rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min((selectedCount / 10) * 100, 100)}%` }}
+                  style={{ width: `${Math.min((selectedCount / 15) * 100, 100)}%` }}
                 />
               </div>
               <p className="text-dark-500 text-sm mt-1.5">
-                {selectedCount} sélectionné{selectedCount > 1 ? 's' : ''}
+                {selectedCount} sélectionné{selectedCount > 1 ? 's' : ''} · min. 3
               </p>
             </>
           ) : (
@@ -171,7 +171,7 @@ export function Onboarding() {
                 onClick={() => setStep('rate')}
                 className="px-8 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold transition-colors"
               >
-                Continuer ({selectedCount} / 15)
+                Continuer ({selectedCount} sélectionné{selectedCount > 1 ? 's' : ''})
               </button>
             </div>
           </>

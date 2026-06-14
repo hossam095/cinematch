@@ -1,5 +1,6 @@
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Sparkles, TrendingUp, Users, Clock, Moon, Film, ArrowRight } from 'lucide-react'
 import { api } from '../services/api'
 import { useUserStore } from '../store/userStore'
@@ -78,19 +79,31 @@ function PersonalisedHome({ userId }: { userId: number }) {
     hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
 
   // All hooks MUST be called before any conditional return
-  const { user } = useUserStore()
+  const { user, logout } = useUserStore()
+  const navigate = useNavigate()
 
-  const { data: sections, isLoading } = useQuery<RecoSection>({
+  const { data: sections, isLoading, isError: sectionsError } = useQuery<RecoSection>({
     queryKey: ['sections', userId],
     queryFn: () => api.getRecommendationSections(userId),
     staleTime: 5 * 60 * 1000,
+    retry: false,
   })
 
   const { data: recos } = useQuery<Movie[]>({
     queryKey: ['recommendations', userId],
     queryFn: () => api.getRecommendations(userId),
     staleTime: 5 * 60 * 1000,
+    retry: false,
   })
+
+  // Si l'utilisateur n'existe plus en base (404 après redémarrage du backend),
+  // on déconnecte et on redirige vers la page de connexion
+  useEffect(() => {
+    if (sectionsError) {
+      logout()
+      navigate('/login')
+    }
+  }, [sectionsError, logout, navigate])
 
   const becauseLiked = sections?.because_you_liked
   const becauseLikedMovies: Movie[] =

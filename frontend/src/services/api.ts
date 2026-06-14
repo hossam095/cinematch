@@ -37,9 +37,11 @@ export const api = {
   getRecommendationSections: (userId: number) =>
     req<RecoSection>(`/recommendations/${userId}/sections`),
 
-  // Poster helper
-  posterUrl: (path: string | null | undefined, size = 'w500') =>
-    path
-      ? `https://image.tmdb.org/t/p/${size}${path}`
-      : `https://placehold.co/300x450/181818/666666?text=No+Poster`,
+  // Poster helper — supports TMDB relative paths (/xxx.jpg),
+  // full URLs (https://...) from OMDB/other sources, or null
+  posterUrl: (path: string | null | undefined, size = 'w500') => {
+    if (!path) return `https://placehold.co/300x450/181818/ffc107?text=?`
+    if (path.startsWith('http')) return path
+    return `https://image.tmdb.org/t/p/${size}${path}`
+  },
 }

@@ -52,7 +52,9 @@ def list_movies(
         q = q.filter(Movie.genres.ilike(f"%{genre}%"))
     if search:
         q = q.filter(
-            Movie.title.ilike(f"%{search}%") | Movie.director.ilike(f"%{search}%")
+            Movie.title.ilike(f"%{search}%")
+            | Movie.director.ilike(f"%{search}%")
+            | Movie.cast.ilike(f"%{search}%")
         )
     if year_min:
         q = q.filter(Movie.year >= year_min)
@@ -78,12 +80,40 @@ def list_movies(
 
 @router.get("/onboarding", response_model=list[MovieOut])
 def onboarding_movies(db: Session = Depends(get_db)):
-    """Return a diverse set of ~15 movies to calibrate a new user's taste."""
-    representative_ids = [3, 5, 13, 26, 30, 15, 34, 47, 53, 17, 49, 65, 61, 68, 29]
-    movies = db.query(Movie).filter(Movie.id.in_(representative_ids)).all()
-    # preserve the order
-    id_map = {m.id: m for m in movies}
-    return [enrich(id_map[i], db) for i in representative_ids if i in id_map]
+    """
+    Return a diverse set of films for onboarding calibration.
+    Picks the top-rated film per genre bucket so the selection
+    covers the full catalogue without duplicates.
+    """
+    all_movies = db.query(Movie).order_by(Movie.tmdb_rating.desc()).all()
+
+    genre_buckets = [
+        "Action", "Adventure", "Animation", "Biography", "Comedy",
+        "Crime", "Drama", "Fantasy", "History", "Horror",
+        "Music", "Mystery", "Romance", "Sci-Fi", "Thriller",
+        "War", "Western", "Family",
+    ]
+
+    seen_ids: set[int] = set()
+    result = []
+
+    # One representative per genre (highest-rated not yet picked)
+    for genre in genre_buckets:
+        for m in all_movies:
+            if m.id not in seen_ids and genre.lower() in m.genres.lower():
+                result.append(m)
+                seen_ids.add(m.id)
+                break
+
+    # Fill remaining slots from most popular films not yet included
+    for m in sorted(all_movies, key=lambda x: x.popularity, reverse=True):
+        if m.id not in seen_ids:
+            result.append(m)
+            seen_ids.add(m.id)
+        if len(result) >= 60:
+            break
+
+    return [enrich(m, db) for m in result]
 
 
 @router.get("/{movie_id}", response_model=MovieOut)

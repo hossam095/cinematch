@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
@@ -33,11 +33,29 @@ export function Discover() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [showFilters, setShowFilters] = useState(false)
 
-  const search = searchParams.get('search') ?? ''
+  // Local input state — updates instantly as the user types
+  const [inputValue, setInputValue] = useState(searchParams.get('search') ?? '')
+
   const genre = searchParams.get('genre') ?? ''
   const sort = searchParams.get('sort') ?? 'popularity'
   const language = searchParams.get('language') ?? ''
   const runtimeMax = searchParams.get('runtime_max') ?? ''
+  // debouncedSearch is what actually drives the API call
+  const debouncedSearch = searchParams.get('search') ?? ''
+
+  // Debounce: update URL (and trigger fetch) 300ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const p = new URLSearchParams(searchParams)
+      if (inputValue.trim()) {
+        p.set('search', inputValue.trim())
+      } else {
+        p.delete('search')
+      }
+      setSearchParams(p, { replace: true })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [inputValue])
 
   const setParam = (key: string, value: string) => {
     const p = new URLSearchParams(searchParams)
@@ -46,15 +64,23 @@ export function Discover() {
     setSearchParams(p)
   }
 
+  const clearSearch = () => {
+    setInputValue('')
+    const p = new URLSearchParams(searchParams)
+    p.delete('search')
+    setSearchParams(p)
+  }
+
   const queryParams: Record<string, string> = { sort, limit: '200' }
-  if (search) queryParams.search = search
+  if (debouncedSearch) queryParams.search = debouncedSearch
   if (genre) queryParams.genre = genre
   if (language) queryParams.language = language
   if (runtimeMax) queryParams.runtime_max = runtimeMax
 
-  const { data: movies, isLoading } = useQuery({
+  const { data: movies, isLoading, isFetching } = useQuery({
     queryKey: ['discover', queryParams],
     queryFn: () => api.getMovies(queryParams),
+    staleTime: 30 * 1000,
   })
 
   return (
@@ -68,16 +94,22 @@ export function Discover() {
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-400" />
             <input
               type="text"
-              placeholder="Rechercher un film, réalisateur..."
-              value={search}
-              onChange={(e) => setParam('search', e.target.value)}
-              className="w-full bg-dark-800 border border-dark-700 rounded-xl pl-10 pr-4 py-3 text-white placeholder-dark-500 focus:outline-none focus:border-brand-500 transition"
+              placeholder="Rechercher un film, réalisateur, acteur..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              className="w-full bg-dark-800 border border-dark-700 rounded-xl pl-10 pr-10 py-3 text-white placeholder-dark-500 focus:outline-none focus:border-brand-500 transition"
             />
-            {search && (
-              <button onClick={() => setParam('search', '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-500 hover:text-white">
+            {/* Loading spinner while debounce pending or fetching */}
+            {isFetching && inputValue ? (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+            ) : inputValue ? (
+              <button
+                onClick={clearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-500 hover:text-white"
+              >
                 <X size={16} />
               </button>
-            )}
+            ) : null}
           </div>
           <button
             onClick={() => setShowFilters((v) => !v)}
@@ -96,7 +128,6 @@ export function Discover() {
         {/* Filters panel */}
         {showFilters && (
           <div className="bg-dark-800 border border-dark-700 rounded-2xl p-6 mb-6 space-y-5">
-            {/* Genres */}
             <div>
               <p className="text-sm font-semibold text-dark-300 mb-3">Genres</p>
               <div className="flex flex-wrap gap-2">
@@ -118,7 +149,6 @@ export function Discover() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Sort */}
               <div>
                 <p className="text-sm font-semibold text-dark-300 mb-2">Trier par</p>
                 <select
@@ -132,7 +162,6 @@ export function Discover() {
                 </select>
               </div>
 
-              {/* Language */}
               <div>
                 <p className="text-sm font-semibold text-dark-300 mb-2">Langue</p>
                 <select
@@ -146,7 +175,6 @@ export function Discover() {
                 </select>
               </div>
 
-              {/* Runtime */}
               <div>
                 <p className="text-sm font-semibold text-dark-300 mb-2">
                   Durée max{runtimeMax ? ` : ${runtimeMax} min` : ''}
@@ -174,6 +202,9 @@ export function Discover() {
           <>
             <p className="text-dark-500 text-sm mb-5">
               {movies?.length ?? 0} film{(movies?.length ?? 0) > 1 ? 's' : ''} trouvé{(movies?.length ?? 0) > 1 ? 's' : ''}
+              {debouncedSearch && (
+                <span className="text-dark-600"> pour « {debouncedSearch} »</span>
+              )}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
               {movies?.map((movie) => (
@@ -183,7 +214,7 @@ export function Discover() {
             {movies?.length === 0 && (
               <div className="text-center py-20">
                 <p className="text-dark-400 text-lg">Aucun film trouvé</p>
-                <p className="text-dark-600 text-sm mt-1">Essayez d'autres filtres</p>
+                <p className="text-dark-600 text-sm mt-1">Essayez d'autres filtres ou un autre terme</p>
               </div>
             )}
           </>
