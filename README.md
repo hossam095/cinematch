@@ -97,42 +97,58 @@ cinematch/
 
 ---
 
-## Installation et lancement
+## Installation rapide (5 minutes)
 
-### Prérequis
-- Python 3.10+ (sur macOS : `brew install python` ou Anaconda, le Python système 3.9 ne suffit pas)
-- Node.js 18+
+La base de données avec les **7 000 films et séries est incluse** dans le dépôt
+(`backend/cinematch.db`). Pas besoin de clé API pour démarrer.
 
-### 1. Installer les dépendances backend
+### 1. Télécharger le projet
+
+**Option A — sans Git** : sur la page GitHub, cliquer sur le bouton vert **« Code »** →
+**« Download ZIP »**, puis décompresser le dossier.
+
+**Option B — avec Git** :
+
+```bash
+git clone https://github.com/hossam095/cinematch.git
+cd cinematch
+```
+
+### 2. Installer ce qu'il faut (une seule fois)
+
+Prérequis : **Python 3.10 ou plus** et **Node.js 18 ou plus**.
+- macOS : `brew install python node` (ou Anaconda pour Python)
+- Windows : installer Python depuis python.org (cocher « Add to PATH ») et Node.js depuis nodejs.org
+
+Puis, dans le dossier du projet :
 
 ```bash
 cd backend
 pip install -r requirements.txt
-```
-
-### 2. Installer les dépendances frontend
-
-```bash
-cd frontend
+cd ../frontend
 npm install
+cd ..
 ```
 
-### 3. Lancer l'application
+### 3. Lancer
 
 ```bash
 bash start.sh
 ```
 
-Ouvrir **http://localhost:5173** dans le navigateur.
+Ouvrir **http://localhost:5173** dans le navigateur. C'est tout : le catalogue complet est déjà là.
+
+> Sur Windows sans `bash`, lancer les deux commandes dans deux terminaux :
+> `cd backend && python -m uvicorn main:app --port 8000` puis `cd frontend && npm run dev`.
 
 > L'API est disponible sur **http://localhost:8000** · Documentation interactive : **http://localhost:8000/docs**
 
 ---
 
-## Importer le catalogue complet (films + séries)
+## Mettre à jour le catalogue (optionnel)
 
-Au premier lancement, la base contient 150 films de démonstration. Pour avoir un catalogue
-de la taille de Netflix (≈ 4 500 films + 2 500 séries) :
+Seulement si tu veux rafraîchir les titres depuis TMDB, ou activer les **teasers vidéo**
+sur les pages de films (ils nécessitent une clé) :
 
 1. Créer un compte gratuit sur [themoviedb.org](https://www.themoviedb.org), puis
    **Paramètres → API** et copier la clé (« API Key » ou « API Read Access Token »).
@@ -152,6 +168,8 @@ python3 import_tmdb.py --lang fr-FR         # titres et synopsis en français
 ```
 
 Le script peut être relancé : les titres déjà présents sont mis à jour, pas dupliqués.
+
+> Les teasers déjà consultés sont mémorisés dans la base, ils restent visibles sans clé.
 
 ---
 

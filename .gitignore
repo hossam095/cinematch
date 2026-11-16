@@ -1,5 +1,7 @@
 # Database
-*.db
+# backend/cinematch.db est versionnée volontairement : elle contient le catalogue (7 000 titres).
+# Seul le fichier vide à la racine est ignoré.
+/cinematch.db
 
 # Python
 __pycache__/
