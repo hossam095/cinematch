@@ -43,7 +43,7 @@ export function Profile() {
         <p className="text-dark-400 text-lg">Vous n'êtes pas connecté.</p>
         <Link
           to="/login"
-          className="bg-brand-500 hover:bg-brand-600 text-black font-semibold px-6 py-3 rounded-xl transition-colors"
+          className="bg-brand-500 hover:bg-brand-600 text-dark-950 font-semibold px-6 py-3 rounded-xl transition-colors"
         >
           Se connecter
         </Link>
@@ -108,7 +108,7 @@ export function Profile() {
               className={clsx(
                 'px-5 py-2 rounded-lg text-sm font-medium transition-colors',
                 activeTab === tab
-                  ? 'bg-brand-500 text-black'
+                  ? 'bg-brand-500 text-dark-950'
                   : 'text-dark-400 hover:text-white'
               )}
             >

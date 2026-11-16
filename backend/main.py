@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, SessionLocal
+from database import engine, SessionLocal, migrate
 from models import Base, Movie, User, Rating
 from seed_data import MOVIES
 from routers import movies, users, recommendations
 
 Base.metadata.create_all(bind=engine)
+migrate()
 
 
 POSTER_PATHS = {

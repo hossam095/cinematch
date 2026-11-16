@@ -6,7 +6,8 @@ Application web de recommandation de films personnalisée. Elle analyse vos note
 
 ## Fonctionnalités
 
-- Catalogue de 150 films avec posters, synopsis, note TMDB
+- Catalogue de plusieurs milliers de films **et séries** importés depuis TMDB (posters, synopsis, casting, note)
+- Onglet Films / Séries et chargement progressif du catalogue
 - Système de notation (1 à 5 étoiles)
 - Recommandations personnalisées basées sur vos goûts
 - Filtres par genre, année, durée, langue
@@ -66,8 +67,9 @@ cinematch/
 │   ├── main.py               # Point d'entrée FastAPI + seed DB
 │   ├── models.py             # Modèles SQLAlchemy (Movie, User, Rating)
 │   ├── database.py           # Connexion SQLite
-│   ├── seed_data.py          # 150 films préconfigurés
-│   ├── fetch_posters.py      # Script de récupération des posters TMDB
+│   ├── seed_data.py          # 150 films de démarrage (sans clé API)
+│   ├── import_tmdb.py        # Import massif films + séries depuis l'API TMDB
+│   ├── .env.example          # Modèle pour la clé TMDB
 │   ├── requirements.txt
 │   └── routers/
 │       ├── movies.py         # GET /movies, /movies/:id, /movies/:id/similar
@@ -82,7 +84,7 @@ cinematch/
 │       ├── pages/
 │       │   ├── Home.tsx       # Page d'accueil avec recommandations
 │       │   ├── Discover.tsx   # Catalogue avec filtres
-│       │   ├── MovieDetail.tsx# Détail d'un film
+│       │   ├── MovieDetail.tsx# Détail d'un film ou d'une série
 │       │   ├── Profile.tsx    # Profil utilisateur et historique
 │       │   ├── Login.tsx      # Connexion / création de compte
 │       │   └── Onboarding.tsx # Calibration des goûts
@@ -98,7 +100,7 @@ cinematch/
 ## Installation et lancement
 
 ### Prérequis
-- Python 3.9+
+- Python 3.10+ (sur macOS : `brew install python` ou Anaconda, le Python système 3.9 ne suffit pas)
 - Node.js 18+
 
 ### 1. Installer les dépendances backend
@@ -127,17 +129,29 @@ Ouvrir **http://localhost:5173** dans le navigateur.
 
 ---
 
-## Récupérer les posters (optionnel)
+## Importer le catalogue complet (films + séries)
 
-Les films ont déjà des posters par défaut. Pour les mettre à jour via l'API TMDB :
+Au premier lancement, la base contient 150 films de démonstration. Pour avoir un catalogue
+de la taille de Netflix (≈ 4 500 films + 2 500 séries) :
 
-1. Créer un compte gratuit sur [themoviedb.org](https://www.themoviedb.org) et obtenir une clé API
-2. Lancer le script :
+1. Créer un compte gratuit sur [themoviedb.org](https://www.themoviedb.org), puis
+   **Paramètres → API** et copier la clé (« API Key » ou « API Read Access Token »).
+2. Créer le fichier `backend/.env` (jamais commité) :
 
 ```bash
 cd backend
-python3 fetch_posters.py TA_CLE_API
+cp .env.example .env     # puis coller la clé : TMDB_API_KEY=...
 ```
+
+3. Lancer l'import (≈ 5 à 10 minutes) :
+
+```bash
+python3 import_tmdb.py                      # 4 500 films + 2 500 séries
+python3 import_tmdb.py --movies 2000 --tv 1000
+python3 import_tmdb.py --lang fr-FR         # titres et synopsis en français
+```
+
+Le script peut être relancé : les titres déjà présents sont mis à jour, pas dupliqués.
 
 ---
 
@@ -145,9 +159,9 @@ python3 fetch_posters.py TA_CLE_API
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/movies` | Liste des films (filtres : genre, search, year, sort, limit) |
-| GET | `/movies/:id` | Détail d'un film |
-| GET | `/movies/:id/similar` | Films similaires (contenu) |
+| GET | `/movies` | Liste des titres (filtres : media_type=movie\|tv, genre, search, year, language, runtime_max, sort, limit, offset). Le total est renvoyé dans l'en-tête `X-Total-Count` |
+| GET | `/movies/:id` | Détail d'un film ou d'une série |
+| GET | `/movies/:id/similar` | Titres similaires (contenu) |
 | POST | `/users` | Créer un utilisateur |
 | POST | `/users/:id/ratings` | Noter un film |
 | GET | `/recommendations/:id` | Recommandations personnalisées |

@@ -1,5 +1,6 @@
 import { useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
 import type { Movie } from '../types'
 import { MovieCard } from './MovieCard'
 
@@ -9,9 +10,13 @@ interface Props {
   movies: Movie[]
   showSource?: boolean
   icon?: React.ReactNode
+  /** Optional "Voir tout" destination */
+  link?: string
+  /** Optional extra control rendered next to the arrows (e.g. a remove button) */
+  action?: React.ReactNode
 }
 
-export function MovieSection({ title, subtitle, movies, showSource = false, icon }: Props) {
+export function MovieSection({ title, subtitle, movies, showSource = false, icon, link, action }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const scroll = (dir: 'left' | 'right') => {
@@ -31,7 +36,17 @@ export function MovieSection({ title, subtitle, movies, showSource = false, icon
           </h2>
           {subtitle && <p className="text-sm text-dark-400 mt-0.5">{subtitle}</p>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {link && (
+            <Link
+              to={link}
+              className="hidden sm:flex items-center gap-1 text-sm text-brand-400 hover:text-brand-300 mr-2"
+            >
+              Voir tout
+              <ArrowRight size={14} />
+            </Link>
+          )}
+          {action}
           <button
             onClick={() => scroll('left')}
             className="p-2 rounded-full bg-dark-700 hover:bg-dark-600 text-white transition-colors"

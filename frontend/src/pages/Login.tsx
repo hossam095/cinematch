@@ -66,7 +66,7 @@ export function Login() {
             <button
               type="submit"
               disabled={loading || !username.trim()}
-              className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-xl py-3 transition-colors"
+              className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-dark-950 font-semibold rounded-xl py-3 transition-colors"
             >
               {loading ? 'Connexion...' : 'Commencer'}
             </button>

@@ -7,9 +7,12 @@
     box-sizing: border-box;
   }
   body {
-    @apply bg-dark-950 text-white font-sans;
+    @apply bg-dark-950 text-dark-50 font-sans;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3 {
+    @apply font-display tracking-tight;
   }
   ::-webkit-scrollbar {
     width: 6px;

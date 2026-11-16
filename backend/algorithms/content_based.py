@@ -1,71 +1,121 @@
 """
-Content-based filtering: recommends movies with similar attributes
-(genres, director, cast, year) to movies the user has rated highly.
+Content-based filtering: recommends titles with similar attributes
+(genres, director, cast, year, media type) to titles the user rated highly.
+
+Instead of materialising an n×n similarity matrix (400 MB at 7 000 titles),
+we keep the L2-normalised feature matrix X (n × d, sparse) and compute
+similarity rows on demand: sim(i, ·) = X[i] · Xᵀ.
 """
 
+from __future__ import annotations
+
 import numpy as np
+from scipy.sparse import csr_matrix, hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, normalize
+
+
+class ContentIndex:
+    """Feature matrix plus id lookups for a fixed list of titles."""
+
+    def __init__(self, movies: list):
+        self.ids: list[int] = [m.id for m in movies]
+        self.id_to_idx: dict[int, int] = {mid: i for i, mid in enumerate(self.ids)}
+        self.X: csr_matrix = _build_feature_matrix(movies)
+
+    def similarity_row(self, movie_id: int) -> np.ndarray | None:
+        """Cosine similarity between one title and every title in the index."""
+        idx = self.id_to_idx.get(movie_id)
+        if idx is None:
+            return None
+        return np.asarray(self.X[idx].dot(self.X.T).todense()).ravel()
+
+    def profile_scores(self, user_ratings: list[tuple[int, float]]) -> np.ndarray | None:
+        """
+        Score every title against a user profile: the rating-weighted
+        sum of the feature vectors of the titles they rated.
+        """
+        total = sum(r for _, r in user_ratings)
+        if total <= 0:
+            return None
+        weights = np.zeros(len(self.ids))
+        for mid, rating in user_ratings:
+            idx = self.id_to_idx.get(mid)
+            if idx is not None:
+                weights[idx] += rating / total
+        if not weights.any():
+            return None
+        profile = self.X.T.dot(weights)  # (d,)
+        return np.asarray(self.X.dot(profile)).ravel()
 
 
 def _build_feature_text(movie) -> str:
     genres = movie.genres.replace(",", " ").lower()
     director = movie.director.replace(",", " ").replace(" ", "_").lower()
     cast = movie.cast.replace(",", " ").replace(" ", "_").lower()
-    # weight genres 3x and director 2x to prioritise them
-    return f"{genres} {genres} {genres} {director} {director} {cast}"
+    kind = f"type_{getattr(movie, 'media_type', 'movie')}"
+    # weight genres 3x, director 2x and media type 2x so films match films
+    return f"{genres} {genres} {genres} {director} {director} {cast} {kind} {kind}"
 
 
-def build_similarity_matrix(movies: list) -> np.ndarray:
-    """Return an (n x n) cosine similarity matrix for all movies."""
+def _build_feature_matrix(movies: list) -> csr_matrix:
     if not movies:
-        return np.array([])
+        return csr_matrix((0, 0))
 
     texts = [_build_feature_text(m) for m in movies]
-
-    tfidf = TfidfVectorizer(analyzer="word", ngram_range=(1, 2))
+    tfidf = TfidfVectorizer(analyzer="word", ngram_range=(1, 2), min_df=1)
     tfidf_matrix = tfidf.fit_transform(texts)
 
-    # Append normalised year and runtime as extra features
     years = np.array([[m.year] for m in movies], dtype=float)
     runtimes = np.array([[m.runtime] for m in movies], dtype=float)
-    scaler = MinMaxScaler()
-    year_norm = scaler.fit_transform(years)
-    runtime_norm = scaler.fit_transform(runtimes)
-
+    year_norm = MinMaxScaler().fit_transform(years)
+    runtime_norm = MinMaxScaler().fit_transform(runtimes)
     extra = np.hstack([year_norm * 0.5, runtime_norm * 0.3])
 
-    from scipy.sparse import hstack, csr_matrix
-    combined = hstack([tfidf_matrix, csr_matrix(extra)])
+    combined = hstack([tfidf_matrix, csr_matrix(extra)]).tocsr()
+    # L2-normalise rows so a dot product is a cosine similarity
+    return normalize(combined, norm="l2", axis=1)
 
-    return cosine_similarity(combined, combined)
+
+# ---- cache -----------------------------------------------------------------
+# The catalogue only changes when the import script runs, so one index per
+# process is enough. It is rebuilt when the title count or max id changes.
+_cache: tuple[tuple[int, int], ContentIndex] | None = None
+
+
+def build_index(movies: list) -> ContentIndex:
+    global _cache
+    key = (len(movies), max((m.id for m in movies), default=0))
+    if _cache is None or _cache[0] != key:
+        _cache = (key, ContentIndex(movies))
+    return _cache[1]
+
+
+# Kept for backward compatibility with older call sites / the report.
+build_similarity_matrix = build_index
 
 
 def get_similar_movies(
     target_movie_id: int,
     movies: list,
-    sim_matrix: np.ndarray,
+    index: ContentIndex,
     top_n: int = 10,
     exclude_ids: set | None = None,
 ) -> list[tuple[int, float]]:
     """Return list of (movie_id, score) sorted by similarity descending."""
-    id_to_idx = {m.id: i for i, m in enumerate(movies)}
-    if target_movie_id not in id_to_idx:
+    row = index.similarity_row(target_movie_id)
+    if row is None:
         return []
 
-    idx = id_to_idx[target_movie_id]
-    scores = list(enumerate(sim_matrix[idx]))
-    scores = sorted(scores, key=lambda x: x[1], reverse=True)
-
-    exclude = exclude_ids or set()
+    exclude = set(exclude_ids or ())
     exclude.add(target_movie_id)
 
     results = []
-    for i, score in scores:
-        movie_id = movies[i].id
-        if movie_id not in exclude:
-            results.append((movie_id, float(score)))
+    for i in np.argsort(-row):
+        mid = index.ids[i]
+        if mid in exclude:
+            continue
+        results.append((mid, float(row[i])))
         if len(results) >= top_n:
             break
     return results
@@ -74,35 +124,27 @@ def get_similar_movies(
 def get_content_recommendations(
     user_ratings: list[tuple[int, float]],
     movies: list,
-    sim_matrix: np.ndarray,
+    index: ContentIndex,
     top_n: int = 20,
 ) -> list[tuple[int, float]]:
     """
-    Given a user's (movie_id, rating) pairs, score every unrated movie
-    as a weighted sum of cosine similarities to rated movies (weight = rating).
+    Given a user's (movie_id, rating) pairs, score every unrated title
+    by similarity to the rating-weighted user profile.
     """
-    if not user_ratings or sim_matrix.size == 0:
+    if not user_ratings or index.X.shape[0] == 0:
         return []
 
-    id_to_idx = {m.id: i for i, m in enumerate(movies)}
+    scores = index.profile_scores(user_ratings)
+    if scores is None:
+        return []
+
     rated_ids = {r[0] for r in user_ratings}
-
-    scores: dict[int, float] = {}
-    total_weight = sum(r for _, r in user_ratings)
-    if total_weight == 0:
-        return []
-
-    for movie_id, rating in user_ratings:
-        if movie_id not in id_to_idx:
+    results = []
+    for i in np.argsort(-scores):
+        mid = index.ids[i]
+        if mid in rated_ids:
             continue
-        idx = id_to_idx[movie_id]
-        sim_row = sim_matrix[idx]
-        weight = rating / total_weight
-        for m in movies:
-            if m.id in rated_ids:
-                continue
-            j = id_to_idx[m.id]
-            scores[m.id] = scores.get(m.id, 0.0) + weight * sim_row[j]
-
-    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    return ranked[:top_n]
+        results.append((mid, float(scores[i])))
+        if len(results) >= top_n:
+            break
+    return results

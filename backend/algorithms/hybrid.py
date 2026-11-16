@@ -24,7 +24,7 @@ def get_hybrid_recommendations(
     user_ratings: list,          # Rating ORM objects for THIS user
     all_ratings: list,           # Rating ORM objects for ALL users
     movies: list,                # Movie ORM objects
-    sim_matrix,                  # np.ndarray from content_based
+    index,                       # ContentIndex from content_based.build_index
     top_n: int = 20,
 ) -> list[dict]:
     """
@@ -40,7 +40,7 @@ def get_hybrid_recommendations(
     movie_ids = {m.id for m in movies}
 
     # --- Content-based scores ---
-    content_raw = get_content_recommendations(user_rating_pairs, movies, sim_matrix, top_n=50)
+    content_raw = get_content_recommendations(user_rating_pairs, movies, index, top_n=50)
     content_scores = {mid: score for mid, score in content_raw}
 
     # Normalise to [0, 1]

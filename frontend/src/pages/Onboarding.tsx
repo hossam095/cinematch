@@ -169,7 +169,7 @@ export function Onboarding() {
                 type="button"
                 disabled={selectedCount < 3}
                 onClick={() => setStep('rate')}
-                className="px-8 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold transition-colors"
+                className="px-8 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-dark-950 font-semibold transition-colors"
               >
                 Continuer ({selectedCount} sélectionné{selectedCount > 1 ? 's' : ''})
               </button>
@@ -225,7 +225,7 @@ export function Onboarding() {
                 type="button"
                 disabled={saving}
                 onClick={handleFinish}
-                className="px-8 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-black font-semibold transition-colors flex items-center gap-2"
+                className="px-8 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-dark-950 font-semibold transition-colors flex items-center gap-2"
               >
                 {saving && <Loader2 size={16} className="animate-spin" />}
                 Voir mes recommandations
